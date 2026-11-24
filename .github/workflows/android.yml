@@ -1,0 +1,43 @@
+name: Build H Browser
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Verify Android project layout
+        shell: bash
+        run: |
+          echo "Repository root: $(pwd)"
+          test -f settings.gradle.kts || { echo 'ERROR: settings.gradle.kts must be in the repository root.'; exit 1; }
+          test -f app/build.gradle.kts || { echo 'ERROR: app/build.gradle.kts is missing. Upload the contents of the ZIP, not an extra enclosing folder.'; find . -maxdepth 3 -type f | sort | head -100; exit 1; }
+          test -f app/src/main/AndroidManifest.xml || { echo 'ERROR: AndroidManifest.xml is missing from app/src/main/.'; exit 1; }
+          echo 'Android project layout looks correct.'
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: H-Browser-V3-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
